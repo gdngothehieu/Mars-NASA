@@ -1,105 +1,215 @@
+// store
 let store = {
-    user: { name: "Student" },
-    apod: '',
-    rovers: ['Curiosity', 'Opportunity', 'Spirit'],
-}
-
-// add our markup to the page
-const root = document.getElementById('root')
+  rovers: Immutable.List(["Curiosity", "Opportunity", "Spirit"]),
+  roverManifests: Immutable.List([]),
+  alreadyRequested: false,
+  roverImages: Immutable.List([]),
+};
 
 const updateStore = (store, newState) => {
-    store = Object.assign(store, newState)
-    render(root, store)
-}
+  store = Object.assign(store, newState);
+};
 
+// render App
 const render = async (root, state) => {
-    root.innerHTML = App(state)
-}
+  // render app with updated state
+  root.innerHTML = App(state);
+};
 
-
-// create content
 const App = (state) => {
-    let { rovers, apod } = state
-
-    return `
-        <header></header>
+  return `
+        <header>${Header()}</header>
         <main>
-            ${Greeting(store.user.name)}
-            <section>
-                <h3>Put things on the page!</h3>
-                <p>Here is an example section.</p>
-                <p>
-                    One of the most popular websites at NASA is the Astronomy Picture of the Day. In fact, this website is one of
-                    the most popular websites across all federal agencies. It has the popular appeal of a Justin Bieber video.
-                    This endpoint structures the APOD imagery and associated metadata so that it can be repurposed for other
-                    applications. In addition, if the concept_tags parameter is set to True, then keywords derived from the image
-                    explanation are returned. These keywords could be used as auto-generated hashtags for twitter or instagram feeds;
-                    but generally help with discoverability of relevant imagery.
-                </p>
-                ${ImageOfTheDay(apod)}
+            <section class="control_panel">
+                ${Tabs(state.rovers)}
+                ${TabContent()}
             </section>
         </main>
         <footer></footer>
-    `
-}
+    `;
+};
 
-// listening for load event because page should load before any JS is called
-window.addEventListener('load', () => {
-    render(root, store)
-})
+(function load() {
+  window.addEventListener("load", () => {
+    const root = document.getElementById("root");
+    render(root, store);
+  });
+})();
 
 // ------------------------------------------------------  COMPONENTS
 
-// Pure function that renders conditional information -- THIS IS JUST AN EXAMPLE, you can delete it.
-const Greeting = (name) => {
-    if (name) {
-        return `
-            <h1>Welcome, ${name}!</h1>
-        `
+// Pure function that renders conditional information
+const Header = () => {
+  return ` <h1 class="title">Welcome NASA officer!</h1>`;
+};
+
+const Tabs = (rovers) => {
+  if (rovers) {
+    const tablinks = [];
+    for (let i = 0; i < rovers.length; i++) {
+      tablinks.push(`<button class="tablinks" disabled>${rovers[i]}</button>`);
     }
+    return `${tablinks.join("")} `;
+  }
+};
 
-    return `
-        <h1>Hello!</h1>
-    `
-}
+const TabContent = () => {
+  renderInformation();
+  return `
+    <div  id="tabcontent">
+    </div>
+    `;
+};
 
-// Example of a pure function that renders infomation requested from the backend
-const ImageOfTheDay = (apod) => {
+const renderInformation = () => {
+  const { alreadyRequested } = store;
+  if (!alreadyRequested) {
+    updateStore(store, { alreadyRequested: true });
+    getRoverManifests(store);
+  }
+};
 
-    // If image does not already exist, or it is not from today -- request it again
-    const today = new Date()
-    const photodate = new Date(apod.date)
-    console.log(photodate.getDate(), today.getDate());
+// ----- API CALLS -------
+const getRoverManifests = async (state) => {
+  const { rovers } = state;
+  let manifests = Immutable.List([]);
 
-    console.log(photodate.getDate() === today.getDate());
-    if (!apod || apod.date === today.getDate() ) {
-        getImageOfTheDay(store)
-    }
+  // cache
+  if (state.roverManifests.size === 0) {
+    const promises = rovers
+      .map((rover) => {
+        return fetch(`http://localhost:3000/rovers/${rover}`)
+          .then((res) => {
+            return res.json();
+          })
+          .then((manifest) => {
+            manifests = manifests.push(manifest);
+          });
+      })
+      .toJS();
 
-    // check if the photo of the day is actually type video!
-    if (apod.media_type === "video") {
-        return (`
-            <p>See today's featured video <a href="${apod.url}">here</a></p>
-            <p>${apod.title}</p>
-            <p>${apod.explanation}</p>
-        `)
-    } else {
-        return (`
-            <img src="${apod.image.url}" height="350px" width="100%" />
-            <p>${apod.image.explanation}</p>
-        `)
-    }
-}
+    Promise.all(promises).then((res) => {
+      updateStore(store, { roverManifests: manifests });
+      Array.from(document.getElementsByClassName("tablinks")).forEach(
+        (btn) => (btn.disabled = false)
+      );
+    });
+  }
 
-// ------------------------------------------------------  API CALLS
+  return manifests;
+};
 
-// Example API call
-const getImageOfTheDay = (state) => {
-    let { apod } = state
+const getRoverImages = async function (state, roverName) {
+  const { roverManifests } = state;
+  const { roverImages } = state;
+  const maxSol = roverManifests
+    .filter((manifest) => manifest.name === roverName)
+    .get(0).max_sol;
 
-    fetch(`https://r950324c957034xreactr0lcusuk-3000.udacity-student-workspaces.com/apod`)
-        .then(res => res.json())
-        .then(apod => updateStore(store, { apod }))
+  // cache
+  if (
+    roverImages.size === 0 ||
+    roverImages.filter((image) => image.rover.name === roverName).size === 0
+  ) {
+    await fetch(
+      `http://localhost:3000/rovers/${roverName}/images?max_sol=${maxSol}`
+    )
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        updateStore(state, { roverImages: roverImages.concat(data) });
+        return data;
+      });
+  }
+};
 
-    return data
-}
+const tabActivator = function (roverManifest) {
+  const roverInfoSection = createRoverInfoSection(
+    roverManifest,
+    createNodeWithInfo
+  );
+  const tabContent = document.getElementById("tabcontent");
+  const roverContainer = document.createElement("div");
+
+  roverContainer.classList.add("rover_container");
+  roverContainer.appendChild(roverInfoSection);
+
+  //fetch images
+  getRoverImages(store, roverManifest.name).then(() => {
+    const { roverImages } = store;
+    const roverImagesForRover = roverImages.filter(
+      (image) => image.rover.name === roverManifest.name
+    );
+    const roverImageSection = createRoverImageSection(
+      roverImagesForRover,
+      createImage
+    );
+    roverContainer.appendChild(roverImageSection);
+  });
+
+  tabContent.innerHTML = "";
+  tabContent.appendChild(roverContainer);
+};
+
+document.addEventListener("click", function (event) {
+  const target = event.target;
+
+  if (target && target.className === "tablinks") {
+    const { roverManifests } = store;
+    const { roverImages } = store;
+    const roverManifest = roverManifests
+      .filter((manifest) => {
+        return manifest.name === event.target.innerText;
+      })
+      .get(0);
+    tabActivator(roverManifest, roverImages);
+  }
+});
+
+const createNodeWithInfo = function (text) {
+  //higher order function
+  const p = document.createElement("p");
+  const textNode = document.createTextNode(text);
+  p.appendChild(textNode);
+  return p;
+};
+
+const createRoverInfoSection = function (roverManifest, createNodeWithInfo) {
+  const container = document.createElement("div");
+  container.classList.add("rover_info");
+  const infoSection = document.createElement("div");
+
+  infoSection.appendChild(createNodeWithInfo(`Name: ${roverManifest.name}`));
+  infoSection.appendChild(
+    createNodeWithInfo(`Landed: ${roverManifest.landing_date}`)
+  );
+  infoSection.appendChild(
+    createNodeWithInfo(`Launched: ${roverManifest.launch_date}`)
+  );
+  infoSection.appendChild(
+    createNodeWithInfo(`Last Images: ${roverManifest.max_date}`)
+  );
+  infoSection.appendChild(
+    createNodeWithInfo(`Status: ${roverManifest.status}`)
+  );
+
+  container.appendChild(infoSection);
+  return container;
+};
+
+const createImage = function (src) {
+  //higher order function
+  const img = document.createElement("img");
+  img.src = src;
+  return img;
+};
+const createRoverImageSection = function (roverImages, createImage) {
+  const container = document.createElement("div");
+  container.classList.add("rover_images");
+
+  roverImages.forEach((image) => {
+    container.appendChild(createImage(image.img_src));
+  });
+  return container;
+};

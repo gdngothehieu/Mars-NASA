@@ -1,0 +1,8 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# Datasource local storage ignored files
+/../../../../../../../../../../../../:\Users\bened\OneDrive\Projekte\coding\projects\udacity_intermediate_js\project_mars_dashboard\nd032-c2-functional-programming-with-javascript-starter\project\.idea/dataSources/
+/dataSources.local.xml
+# Editor-based HTTP Client requests
+/httpRequests/
