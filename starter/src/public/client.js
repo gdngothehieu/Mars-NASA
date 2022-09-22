@@ -1,18 +1,16 @@
-// store
+// Storing immutable list and use them throughout the lifecycle
 let store = {
   rovers: Immutable.List(["Curiosity", "Opportunity", "Spirit"]),
   roverManifests: Immutable.List([]),
   alreadyRequested: false,
   roverImages: Immutable.List([]),
 };
-
+// Assigning new state to store
 const updateStore = (store, newState) => {
   store = Object.assign(store, newState);
 };
-
-// render App
+// Adding root inner html
 const render = async (root, state) => {
-  // render app with updated state
   root.innerHTML = App(state);
 };
 
@@ -29,13 +27,6 @@ const App = (state) => {
     `;
 };
 
-(function load() {
-  window.addEventListener("load", () => {
-    const root = document.getElementById("root");
-    render(root, store);
-  });
-})();
-
 // ------------------------------------------------------  COMPONENTS
 
 // Pure function that renders conditional information
@@ -46,8 +37,10 @@ const Header = () => {
 const Tabs = (rovers) => {
   if (rovers) {
     const tablinks = [];
-    for (let i = 0; i < rovers.length; i++) {
-      tablinks.push(`<button class="tablinks" disabled>${rovers[i]}</button>`);
+    for (let i = 0; i < rovers._tail.array.length; i++) {
+      tablinks.push(
+        `<button class="tablinks" disabled>${rovers._tail.array[i]}</button>`
+      );
     }
     return `${tablinks.join("")} `;
   }
@@ -60,7 +53,7 @@ const TabContent = () => {
     </div>
     `;
 };
-
+// Initiate request
 const renderInformation = () => {
   const { alreadyRequested } = store;
   if (!alreadyRequested) {
@@ -71,13 +64,13 @@ const renderInformation = () => {
 
 // ----- API CALLS -------
 const getRoverManifests = async (state) => {
-  const { rovers } = state;
-  let manifests = Immutable.List([]);
+  try {
+    const { rovers } = state;
+    let manifests = Immutable.List([]);
 
-  // cache
-  if (state.roverManifests.size === 0) {
-    const promises = rovers
-      .map((rover) => {
+    // cache
+    if (state.roverManifests.size === 0) {
+      const roversResponse = rovers.map((rover) => {
         return fetch(`http://localhost:3000/rovers/${rover}`)
           .then((res) => {
             return res.json();
@@ -85,21 +78,20 @@ const getRoverManifests = async (state) => {
           .then((manifest) => {
             manifests = manifests.push(manifest);
           });
-      })
-      .toJS();
-
-    Promise.all(promises).then((res) => {
-      updateStore(store, { roverManifests: manifests });
-      Array.from(document.getElementsByClassName("tablinks")).forEach(
-        (btn) => (btn.disabled = false)
-      );
-    });
+      });
+      Promise.all(roversResponse).then((res) => {
+        updateStore(store, { roverManifests: manifests });
+        Array.from(document.getElementsByClassName("tablinks")).forEach(
+          (btn) => (btn.disabled = false)
+        );
+      });
+    }
+  } catch (e) {
+    console.log(e);
   }
-
-  return manifests;
 };
 
-const getRoverImages = async function (state, roverName) {
+const getRoverImages = async (state, roverName) => {
   const { roverManifests } = state;
   const { roverImages } = state;
   const maxSol = roverManifests
@@ -111,20 +103,17 @@ const getRoverImages = async function (state, roverName) {
     roverImages.size === 0 ||
     roverImages.filter((image) => image.rover.name === roverName).size === 0
   ) {
-    await fetch(
+    let dataResponse = await fetch(
       `http://localhost:3000/rovers/${roverName}/images?max_sol=${maxSol}`
-    )
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        updateStore(state, { roverImages: roverImages.concat(data) });
-        return data;
-      });
+    );
+
+    dataResponse = await dataResponse.json();
+    updateStore(state, { roverImages: roverImages.concat(dataResponse) });
+    return dataResponse;
   }
 };
 
-const tabActivator = function (roverManifest) {
+const tabActivator = (roverManifest) => {
   const roverInfoSection = createRoverInfoSection(
     roverManifest,
     createNodeWithInfo
@@ -152,7 +141,7 @@ const tabActivator = function (roverManifest) {
   tabContent.appendChild(roverContainer);
 };
 
-document.addEventListener("click", function (event) {
+document.addEventListener("click", (event) => {
   const target = event.target;
 
   if (target && target.className === "tablinks") {
@@ -177,22 +166,18 @@ const createNodeWithInfo = function (text) {
 
 const createRoverInfoSection = function (roverManifest, createNodeWithInfo) {
   const container = document.createElement("div");
-  container.classList.add("rover_info");
   const infoSection = document.createElement("div");
-
-  infoSection.appendChild(createNodeWithInfo(`Name: ${roverManifest.name}`));
-  infoSection.appendChild(
-    createNodeWithInfo(`Landed: ${roverManifest.landing_date}`)
-  );
-  infoSection.appendChild(
-    createNodeWithInfo(`Launched: ${roverManifest.launch_date}`)
-  );
-  infoSection.appendChild(
-    createNodeWithInfo(`Last Images: ${roverManifest.max_date}`)
-  );
-  infoSection.appendChild(
-    createNodeWithInfo(`Status: ${roverManifest.status}`)
-  );
+  const infos = [
+    `Name: ${roverManifest.name}`,
+    `Landing Date: ${roverManifest.landing_date}`,
+    `Launched Date: ${roverManifest.launch_date}`,
+    `Most recent: ${roverManifest.max_date}`,
+    `Most photos taken: ${roverManifest.max_date}`,
+    `Status: ${roverManifest.status}`,
+  ];
+  for (let i = 0; i < infos.length; i++) {
+    infoSection.appendChild(createNodeWithInfo(infos[i]));
+  }
 
   container.appendChild(infoSection);
   return container;
@@ -213,3 +198,8 @@ const createRoverImageSection = function (roverImages, createImage) {
   });
   return container;
 };
+
+window.addEventListener("load", () => {
+  const root = document.getElementById("root");
+  render(root, store);
+});

@@ -1,7 +1,5 @@
 
 @import "resets.css";
-@import "tabs.css";
-@import "rover_container.css";
 
 body {
   display: flex;
@@ -28,7 +26,48 @@ main {
 }
 
 .control_panel {
-  background-color: #6b463ec0;
+  background-color: white;
   min-height: 60vh;
   min-width: 80vw;
+}
+
+.rover_section {
+  display: flex;
+  flex-direction: column;
+}
+
+.rover-images-section {
+  color: black;
+}
+
+.rover_images {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.rover_images img {
+  margin-bottom: 10px;
+}
+
+@media(min-width:769px) {
+  .rover_images {
+      justify-content: space-around;
+  }
+
+  .rover_images img {
+      width: 45%;
+      margin-bottom: 20px;
+  }
+}
+
+@media(min-width:991px) {
+  .rover_images {
+      justify-content: space-around;
+  }
+
+  .rover_images img {
+      width: 22.5%;
+      margin-bottom: 20px;
+  }
 }
