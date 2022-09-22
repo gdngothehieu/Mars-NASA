@@ -113,7 +113,7 @@ const getRoverImages = async (state, roverName) => {
   }
 };
 
-const tabActivator = (roverManifest) => {
+const tabActivator = async (roverManifest) => {
   const roverInfoSection = createRoverInfoSection(
     roverManifest,
     createNodeWithInfo
@@ -125,17 +125,16 @@ const tabActivator = (roverManifest) => {
   roverContainer.appendChild(roverInfoSection);
 
   //fetch images
-  getRoverImages(store, roverManifest.name).then(() => {
-    const { roverImages } = store;
-    const roverImagesForRover = roverImages.filter(
-      (image) => image.rover.name === roverManifest.name
-    );
-    const roverImageSection = createRoverImageSection(
-      roverImagesForRover,
-      createImage
-    );
-    roverContainer.appendChild(roverImageSection);
-  });
+  await getRoverImages(store, roverManifest.name);
+  const { roverImages } = store;
+  const roverImagesForRover = roverImages.filter(
+    (image) => image.rover.name === roverManifest.name
+  );
+  const roverImageSection = createRoverImageSection(
+    roverImagesForRover,
+    createImage
+  );
+  roverContainer.appendChild(roverImageSection);
 
   tabContent.innerHTML = "";
   tabContent.appendChild(roverContainer);
@@ -155,16 +154,16 @@ document.addEventListener("click", (event) => {
     tabActivator(roverManifest, roverImages);
   }
 });
-
-const createNodeWithInfo = function (text) {
+// Representing each info line
+const createNodeWithInfo = (text) => {
   //higher order function
   const p = document.createElement("p");
   const textNode = document.createTextNode(text);
   p.appendChild(textNode);
   return p;
 };
-
-const createRoverInfoSection = function (roverManifest, createNodeWithInfo) {
+// Create a rover info section
+const createRoverInfoSection = (roverManifest, createNodeWithInfo) => {
   const container = document.createElement("div");
   const infoSection = document.createElement("div");
   const infos = [
@@ -183,13 +182,13 @@ const createRoverInfoSection = function (roverManifest, createNodeWithInfo) {
   return container;
 };
 
-const createImage = function (src) {
+const createImage = (src) => {
   //higher order function
   const img = document.createElement("img");
   img.src = src;
   return img;
 };
-const createRoverImageSection = function (roverImages, createImage) {
+const createRoverImageSection = (roverImages, createImage) => {
   const container = document.createElement("div");
   container.classList.add("rover_images");
 
